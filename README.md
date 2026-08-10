@@ -13,7 +13,7 @@ Built with a strong focus on **Java backend fundamentals, AI integration, docume
 ![Apache PDFBox](https://img.shields.io/badge/Apache%20PDFBox-3.0.6-D22128?logo=apache&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-Database-4479A1?logo=mysql&logoColor=white)
 ![Maven](https://img.shields.io/badge/Maven-Build-C71A36?logo=apachemaven&logoColor=white)
-![Postman](https://img.shields.io/badge/Postman-API%20Testing-FF6C37?logo=postman&logoColor=white)
+![Bruno](https://img.shields.io/badge/Bruno-API%20Testing-000000?logo=bruno&logoColor=white)
 
 </p>
 
@@ -33,7 +33,7 @@ Built with a strong focus on **Java backend fundamentals, AI integration, docume
 | **Validation** | Jakarta Bean Validation |
 | **Build Tool** | Maven |
 | **Testing** | Spring Boot Test |
-| **API Testing** | Postman |
+| **API Testing** | Bruno |
 | **Monitoring** | Spring Boot Actuator |
 ---
 
@@ -290,7 +290,7 @@ The application currently demonstrates:
 - MySQL database connectivity
 - Spring Data JPA and Hibernate
 - Maven-based project management
-- API testing using Postman
+- API testing using Bruno
 - Spring Boot Actuator for monitoring
 
 ---
@@ -329,7 +329,7 @@ Sensitive credentials should never be committed to the GitHub repository.
 
 ## 🧪 Testing
 
-The REST APIs are tested using **Postman**.
+The REST APIs are tested using **Bruno**.
 
 The project includes demonstrations for:
 
@@ -381,7 +381,7 @@ The primary focus areas are:
 ---
 ## 👨‍💻 Author
 
-**Sidharth Kumar**  
+**Siddharth Kumar**  
 
 [![Email](https://img.shields.io/badge/Email-siddharth0161820@gmail.com-red?style=for-the-badge&logo=gmail)](mailto:siddharth0161820@gmail.com)  
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/siddharthkumar16)  
