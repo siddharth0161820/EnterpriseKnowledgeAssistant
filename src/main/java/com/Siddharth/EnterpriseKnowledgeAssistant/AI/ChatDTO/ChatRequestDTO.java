@@ -5,11 +5,10 @@ import lombok.*;
 
 @AllArgsConstructor
 @NoArgsConstructor
-@ToString
 @Getter
 @Setter
+@ToString
 public class ChatRequestDTO {
-    //1>Fields
-    @NotBlank(message = "Questions cannot be empty")
+    @NotBlank(message = "Question cannot be empty")
     private String question;
 }

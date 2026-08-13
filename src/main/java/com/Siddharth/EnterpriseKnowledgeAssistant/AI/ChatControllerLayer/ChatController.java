@@ -5,24 +5,39 @@ import com.Siddharth.EnterpriseKnowledgeAssistant.AI.ChatDTO.ChatResponseDTO;
 import com.Siddharth.EnterpriseKnowledgeAssistant.AI.ChatServiceLayer.ChatService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @AllArgsConstructor
 @RequestMapping("/api/chat")
 public class ChatController {
 
-    // Inject ChatService
     private final ChatService chatService;
 
-    @PostMapping("/chatWithAi")
-    public ResponseEntity<ChatResponseDTO> chatWithAi(
-            @Valid @RequestBody ChatRequestDTO chatRequestDTO) {
+    // General AI
+    @PostMapping("/general")
+    public ResponseEntity<ChatResponseDTO> generalChat(
+            @Valid @RequestBody ChatRequestDTO request) {
 
-        ChatResponseDTO response = chatService.chatWithAi(chatRequestDTO);
+        return ResponseEntity.ok(
+                chatService.chatWithAi(request)
+        );
+    }
 
-        return new ResponseEntity<>(response, HttpStatus.OK);
+    // PDF + Question
+    @PostMapping(
+            value = "/pdf",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<ChatResponseDTO> chatWithPdf(
+            @RequestPart("file") MultipartFile file,
+            @RequestPart("question") String question) {
+
+        return ResponseEntity.ok(
+                chatService.chatWithPdf(file, question)
+        );
     }
 }

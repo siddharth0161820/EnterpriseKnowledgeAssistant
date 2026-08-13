@@ -1,49 +1,52 @@
 package com.Siddharth.EnterpriseKnowledgeAssistant.AI.Ingestion.pdf;
 
-import lombok.AllArgsConstructor;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.stereotype.Service;
-
-import java.io.File;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
-@AllArgsConstructor
 public class PdfIngestionService {
 
-    // Inject PdfContextStore
-    private final PdfContextStore pdfContextStore;
+    public String extractText(MultipartFile file) {
 
-    // Path of folder containing PDFs
-    private static final String PDF_DIRECTORY = "NexaCorpData/pdfs";
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "PDF file cannot be empty"
+            );
+        }
 
-    public void ingestPdfs() throws Exception {
+        try {
+            PDDocument document =
+                    Loader.loadPDF(file.getBytes());
 
-        // Locate PDF folder
-        File directory = new File(PDF_DIRECTORY);
+            try (document) {
 
-        // Get all files inside the folder
-        File[] pdfFiles = directory.listFiles();
+                PDFTextStripper stripper =
+                        new PDFTextStripper();
 
-        // Process each PDF
-        for (File pdfFile : pdfFiles) {
+                String text = stripper.getText(document);
 
-            // Load PDF using PDFBox
-            PDDocument document = Loader.loadPDF(pdfFile);
+                if (text == null || text.isBlank()) {
+                    throw new IllegalArgumentException(
+                            "PDF does not contain readable text"
+                    );
+                }
 
-            // Extract text from PDF
-            PDFTextStripper stripper = new PDFTextStripper();
-            String text = stripper.getText(document);
+                return text;
+            }
 
-            // Store extracted text
-            pdfContextStore.setPdfText(text);
+        } catch (IllegalArgumentException e) {
 
-            // Print extracted text
-            System.out.println(text);
+            throw e;
 
-            // Close PDF
-            document.close();
+        } catch (Exception e) {
+
+            throw new RuntimeException(
+                    "Failed to read PDF",
+                    e
+            );
         }
     }
 }
