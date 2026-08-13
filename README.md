@@ -1,8 +1,13 @@
 # 🤖 Enterprise Knowledge Assistant – Spring Boot & Google Gemini
 
-A practical **Spring Boot AI backend application** demonstrating **REST API development, Google Gemini integration, PDF document processing with Apache PDFBox, DTO validation, MySQL connectivity, and clean layered architecture**.
+A practical **Spring Boot AI backend application** demonstrating **REST API development, Google Gemini integration, dynamic PDF document processing with Apache PDFBox, DTO validation, MySQL connectivity, and clean layered architecture**.
 
-Built with a strong focus on **Java backend fundamentals, AI integration, document-based question answering, API design, and production-oriented development patterns**, suitable for Java Backend Developer and AI-enabled backend roles.
+The application supports two AI use cases:
+
+- **General AI question answering** using Google Gemini
+- **Dynamic PDF-based question answering**, where a user can upload a readable PDF and ask questions based on its content
+
+Built with a strong focus on **Java backend development, Spring Boot, REST APIs, AI integration, document processing, validation, exception handling, database connectivity, and clean backend architecture**, making it suitable for Java Backend Developer and AI-enabled backend roles.
 
 <p align="center">
 
@@ -28,164 +33,304 @@ Built with a strong focus on **Java backend fundamentals, AI integration, docume
 | **AI Integration** | Spring AI 1.1.8 + Google Gemini |
 | **PDF Processing** | Apache PDFBox 3.0.6 |
 | **Database** | MySQL |
-| **Persistence** | Spring Data JPA / Hibernate |
-| **API** | Spring Web / REST |
+| **Persistence Framework** | Spring Data JPA / Hibernate |
+| **API Development** | Spring Web / REST |
 | **Validation** | Jakarta Bean Validation |
 | **Build Tool** | Maven |
 | **Testing** | Spring Boot Test |
 | **API Testing** | Bruno |
 | **Monitoring** | Spring Boot Actuator |
+| **Architecture** | Layered Controller-Service Architecture |
+
 ---
 
 ## 🧩 Architecture Overview
 
-The application follows a clean **layered architecture** where the REST API receives the user's question, the service layer prepares the available PDF context, and Google Gemini generates the final response.
+The application follows a clean **layered backend architecture**.
 
-### Request Flow
+The REST controller receives requests and delegates business logic to the service layer. The service communicates with Spring AI's `ChatClient`, while the PDF flow additionally uses `PdfIngestionService` and Apache PDFBox to extract text from the uploaded document.
+
+### General AI Flow
 
 ```text
 User
- ↓
+  ↓
 ChatController
- ↓
+  ↓
 ChatService
- ↓
-PdfContextStore
- ↓
+  ↓
+ChatClient
+  ↓
 Google Gemini
- ↓
-ChatResponse
- ↓
+  ↓
+ChatResponseDTO
+  ↓
 User
 ```
 
-### Architecture Diagram
+### PDF Question Answering Flow
 
-![High-Level System Architecture](docs/architecture/01_High_Level_System_Architecture.png)
+```text
+User
+  ↓
+ChatController
+  ↓
+ChatService
+  ↓
+PdfIngestionService
+  ↓
+Apache PDFBox
+  ↓
+Extract PDF Text
+  ↓
+ChatService
+  ↓
+ChatClient
+  ↓
+Google Gemini
+  ↓
+ChatResponseDTO
+  ↓
+User
+```
+
+### High-Level System Architecture
+
+![High-Level System Architecture](https://github.com/siddharth0161820/EnterpriseKnowledgeAssistant/blob/master/docs/architecture/01_High_Level_System_Architecture.png)
+
 ---
 
 ## 📄 PDF Ingestion & AI Processing
 
-The application uses **Apache PDFBox** to load an enterprise PDF and extract its text. The extracted content is temporarily stored and then provided to Google Gemini along with the user's question.
+The application supports **dynamic PDF uploads**.
 
-### Processing Flow
+A user does not need to place a predefined PDF inside the project. The PDF is uploaded directly through the REST API request.
+
+`PdfIngestionService` uses **Apache PDFBox** to:
+
+1. Receive the uploaded `MultipartFile`
+2. Validate that the file is not empty
+3. Load the PDF
+4. Extract readable text
+5. Reject PDFs without readable text
+6. Return the extracted text to the service layer
+
+The extracted PDF text is then combined with the user's question and sent to Google Gemini.
+
+### PDF Processing Flow
 
 ```text
-PDF Document
+Uploaded PDF
+     ↓
+ChatController
+     ↓
+ChatService
      ↓
 PdfIngestionService
      ↓
 Apache PDFBox
      ↓
-Text Extraction
+PDF Text Extraction
      ↓
-PdfContextStore
+PDF Text + User Question
      ↓
-ChatService
-     ↓
-PDF Context + User Question
+ChatClient / Spring AI
      ↓
 Google Gemini
      ↓
 AI Response
 ```
 
-### PDF Ingestion Architecture
+### PDF Ingestion & AI Processing Architecture
 
-![PDF Ingestion and AI Processing Flow](docs/architecture/02_PDF_Ingestion_and_AI_Processing_Flow.png)
+![PDF Ingestion and AI Processing Flow](https://github.com/siddharth0161820/EnterpriseKnowledgeAssistant/blob/master/docs/architecture/02_PDF_Ingestion_and_AI_Processing_Flow.png)
 
 ### Key Components
 
 | Component | Responsibility |
 |---|---|
-| **PdfIngestionService** | Loads PDF files and extracts text using Apache PDFBox |
-| **PdfContextStore** | Temporarily stores the extracted PDF text |
-| **ChatService** | Combines the PDF context with the user's question |
-| **ChatController** | Exposes the REST API |
+| **ChatController** | Exposes the general AI and PDF question-answering REST endpoints |
+| **ChatService** | Contains the main AI business logic |
+| **PdfIngestionService** | Extracts readable text from uploaded PDF files |
+| **Apache PDFBox** | Performs PDF loading and text extraction |
+| **AiConfiguration** | Creates and configures the Spring AI `ChatClient` bean |
+| **ChatClient** | Sends prompts to the configured AI model |
 | **Google Gemini** | Generates the final AI response |
+| **ChatRequestDTO** | Represents validated general AI requests |
+| **ChatResponseDTO** | Represents the AI response returned to the client |
+| **GlobalExceptionHandler** | Handles validation and invalid-input errors centrally |
 
-> **Current implementation:** The application uses direct PDF text context with Gemini. It does not currently use embeddings, a vector database, or semantic similarity search.
+> **Current implementation:** The application directly extracts PDF text and sends that text as context to Gemini. It does not currently use embeddings, a vector database, semantic similarity search, chunk-level retrieval, or a persistent RAG pipeline.
 
 ---
 
-## 💬 Chat API
+## 💬 Chat APIs
 
-The application exposes a REST API that accepts a user's question and returns an AI-generated response.
+The application exposes two separate REST endpoints.
 
-### Endpoint
+### 1. General AI
+
+This endpoint sends a normal text question directly to Google Gemini.
+
+#### Endpoint
 
 ```http
-POST /api/chat/chatWithAi
+POST /api/chat/general
 ```
 
-### Request
+#### Request
 
 ```json
 {
-  "question": "How does NexaCorp's Role-Based Access Control work, and what happens to system access when an employee leaves the company?"
+  "question": "what is Life in one sentence?"
 }
 ```
 
-### Response
+#### Response
 
 ```json
 {
-  "answer": "Based on NexaCorp's IT Access Control Policy, access is assigned based on employee roles such as Engineering, HR, Support, and Operations. Elevated privileges are granted only when justified by business needs. Upon employee termination or role change, system access must be reviewed and adjusted, and access to critical systems must be revoked immediately upon exit."
+  "answer": "Life is a continuous journey of growth and change, where meaning is not given to us, but created through how we love, learn, and experience the world."
 }
 ```
 
-### API Flow
+---
+
+### 2. PDF-Based Question Answering
+
+This endpoint accepts a PDF file and a question.
+
+#### Endpoint
+
+```http
+POST /api/chat/pdf
+```
+
+#### Content Type
+
+```http
+multipart/form-data
+```
+
+#### Request Parts
 
 ```text
-Client
-  ↓
-POST /api/chat/chatWithAi
-  ↓
-ChatController
-  ↓
-ChatService
-  ↓
-PDF Context + User Question
-  ↓
-Google Gemini
-  ↓
-ChatResponseDTO
-  ↓
-Client
+file      → Any readable PDF
+question  → Question related to the uploaded PDF
 ```
-### Chat Request & Response Flow
 
-![Chat Request and Response Flow](docs/architecture/03_Chat_Request_and_Response_Flow.png)
+Example:
 
-### API Demonstration
+```text
+file:
+candidate-resume.pdf
+
+question:
+What is the name of the candidate?
+```
+
+#### Response
+
+```json
+{
+  "answer": "1. Question: What is the name of the candidate?\n   Answer: Siddharth Kumar"
+}
+```
+
+The PDF endpoint can process **different PDFs uploaded by the user at request time**.
+
+---
+
+## 🔄 API Request & Response Flow
+
+```text
+                         ┌─────────────────────┐
+                         │       Client        │
+                         └──────────┬──────────┘
+                                    │
+                     ┌──────────────┴──────────────┐
+                     │                             │
+                     ▼                             ▼
+            /api/chat/general              /api/chat/pdf
+                     │                             │
+                     ▼                             ▼
+              ChatController               ChatController
+                     │                             │
+                     ▼                             ▼
+                ChatService                  ChatService
+                     │                             │
+                     │                    PdfIngestionService
+                     │                             │
+                     │                       Apache PDFBox
+                     │                             │
+                     │                       Extracted Text
+                     │                             │
+                     └──────────────┬──────────────┘
+                                    │
+                                    ▼
+                               ChatClient
+                                    │
+                                    ▼
+                              Google Gemini
+                                    │
+                                    ▼
+                            ChatResponseDTO
+                                    │
+                                    ▼
+                                  Client
+```
+
+### API Request & Response Architecture
+![API Request and Response Flow](https://github.com/siddharth0161820/EnterpriseKnowledgeAssistant/blob/master/docs/architecture/03_API_Request_Response_Flow.png)
+
+---
+
+## 🧪 API Demonstration
 
 The application demonstrates both **general AI question answering** and **document-based question answering**.
 
-#### General Question → AI Response
+### General Question → AI Response
 
-A general enterprise-related question is sent to the API and Google Gemini generates the response.
+A normal question is sent to the `/api/chat/general` endpoint and Google Gemini generates the response.
 
-![General Question and AI Response](docs/screenshots/04_General_AI_Response.png)
+![General AI Response](docs/screenshots/03-general-ai-response.png )
 
-#### PDF-Based Question → AI Response
+### PDF Question → AI Response
 
-A question related to the uploaded enterprise PDF is sent to the API, and Google Gemini generates the response using the extracted PDF context.
+A PDF is uploaded through `/api/chat/pdf`.
 
-![PDF-Based Question and AI Response](docs/screenshots/03_IT_Access_Control_PDF_Query.png)
+Apache PDFBox extracts the PDF text, and the extracted content is provided to Gemini along with the user's question.
 
-#### PDF Query → Information Not Found
+![PDF Question and Answer](docs/screenshots/04-pdf-question-answer.png )
 
-The application also handles questions where the requested information is not available in the uploaded PDF context.
+### PDF Query → Information Not Found
 
-![PDF Query Information Not Found](docs/screenshots/06_PDF_Based_Query_No_Information_Found.png)
+For PDF-based questions, the prompt instructs Gemini to answer using **only the uploaded PDF content**.
+
+If the requested information is not available in the document, the response is:
+
+```text
+The requested information was not found in the uploaded document.
+```
+
+![PDF Information Not Found](docs/screenshots/05-pdf-information-not-found.png )
 
 ---
 
 ## 🛡️ Validation & Error Handling
 
-The API validates incoming requests using **Jakarta Bean Validation** and handles validation errors through a centralized `@RestControllerAdvice`.
+The application uses **Jakarta Bean Validation** and centralized exception handling through `@RestControllerAdvice`.
 
-### Invalid Request
+### General AI Validation
+
+The `ChatRequestDTO` contains:
+
+```java
+@NotBlank(message = "Question cannot be empty")
+private String question;
+```
+
+An empty request:
 
 ```json
 {
@@ -193,84 +338,235 @@ The API validates incoming requests using **Jakarta Bean Validation** and handle
 }
 ```
 
-### Error Response
+returns:
 
 ```json
 {
-  "question": "Questions cannot be empty"
+  "question": "Question cannot be empty"
 }
+```
+
+with:
+
+```http
+HTTP 400 Bad Request
+```
+
+### PDF Validation
+
+The PDF ingestion service validates:
+
+- Missing PDF file
+- Empty PDF file
+- PDF without readable text
+- PDF processing failures
+
+Examples of handled errors include:
+
+```text
+PDF file cannot be empty
+```
+
+and:
+
+```text
+PDF does not contain readable text
 ```
 
 ### Error Handling Flow
 
 ```text
-Invalid Request
+Client Request
       ↓
-@Valid
+ChatController
       ↓
-Validation Failure
+Validation / PDF Processing
       ↓
-MethodArgumentNotValidException
-      ↓
+    Exception?
+      │
+      ▼
 GlobalExceptionHandler
-      ↓
+      │
+      ├── MethodArgumentNotValidException
+      │
+      └── IllegalArgumentException
+      │
+      ▼
 HTTP 400 Bad Request
 ```
 
-### Error Handling Architecture
+### Exception Handling Architecture
 
-> Error-handling architecture diagram can be added here when the dedicated diagram is available.
+![Exception Handling Flow](docs/architecture/04_Exception_Handling_Flow.png )
 
 ### Validation Error Demonstration
 
-![Validation Error Demonstration](docs/screenshots/05_Invalid_Request_Error_Handling.png)
+![Validation Error Handling](docs/screenshots/06-validation-error-handling.png )
 
 ### Implementation
 
-- Request validation using `@Valid`
-- Field validation using DTO annotations
-- Centralized exception handling using `@RestControllerAdvice`
-- Consistent HTTP `400 Bad Request` response
+- `@Valid` for request validation
+- `@NotBlank` for required questions
+- `@RestControllerAdvice` for centralized exception handling
+- `MethodArgumentNotValidException` handling
+- `IllegalArgumentException` handling
+- HTTP `400 Bad Request` responses
 
 ---
 
 ## 🗄️ MySQL Database
 
-The application uses **MySQL** with **Spring Data JPA and Hibernate** for database connectivity and persistence.
+The project is configured with **MySQL**, Spring Data JPA, and Hibernate.
+
+The current application does not contain custom JPA entities or repositories for storing PDF documents. MySQL is currently configured as part of the backend infrastructure and its connectivity is demonstrated during application startup.
 
 ### Database Flow
 
 ```text
-Enterprise Knowledge Assistant
-            ↓
-      Spring Data JPA
-            ↓
-         Hibernate
-            ↓
-        JDBC / HikariCP
-            ↓
-           MySQL
+Spring Boot Application
+          ↓
+   Spring Data JPA
+          ↓
+       Hibernate
+          ↓
+      JDBC / HikariCP
+          ↓
+         MySQL
 ```
 
 ### Database Configuration
-
-Database credentials are supplied through environment variables instead of being hardcoded in the application.
 
 ```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/EnterpriseKnowledgeAssistant?useSSL=false
 spring.datasource.username=root
 spring.datasource.password=${DB_PASSWORD}
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
 ```
 
 ### Security
 
-- Database password is stored using the `DB_PASSWORD` environment variable.
-- Gemini API credentials are also provided through environment variables.
-- Sensitive credentials are not committed to the GitHub repository.
+Database credentials are not hardcoded.
 
-### Database Connectivity Demonstration
+The application uses:
 
-![MySQL Database Connection](docs/screenshots/02-mysql-database-connection.png)
+```text
+DB_PASSWORD
+```
+
+for the MySQL password.
+
+The Gemini API key is also provided through:
+
+```text
+GEMINI_API_KEY
+```
+
+Sensitive credentials should never be committed to the GitHub repository.
+
+### MySQL Connectivity Demonstration
+
+![MySQL Database Connection](docs/screenshots/02-mysql-database-connection.png )
+
+---
+
+## ⚙️ Configuration
+
+The application uses environment variables for sensitive configuration.
+
+### Environment Variables
+
+```text
+DB_PASSWORD=your_mysql_password
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+### Application Properties
+
+```properties
+spring.application.name=EnterpriseKnowledgeAssistant
+server.port=6363
+
+spring.datasource.url=jdbc:mysql://localhost:3306/EnterpriseKnowledgeAssistant?useSSL=false
+spring.datasource.username=root
+spring.datasource.password=${DB_PASSWORD}
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+
+spring.ai.google.genai.api-key=${GEMINI_API_KEY}
+spring.ai.google.genai.chat.options.model=gemini-flash-latest
+
+spring.servlet.multipart.max-file-size=100MB
+spring.servlet.multipart.max-request-size=100MB
+```
+
+---
+
+## ▶️ Running the Application
+
+### 1. Clone the Repository
+
+```bash
+git clone <your-repository-url>
+cd EnterpriseKnowledgeAssistant
+```
+
+### 2. Configure Environment Variables
+
+Set the following environment variables:
+
+```text
+DB_PASSWORD
+GEMINI_API_KEY
+```
+
+### 3. Start the Application
+
+Using Maven:
+
+```bash
+mvn spring-boot:run
+```
+
+The application runs on:
+
+```text
+http://localhost:6363
+```
+
+### 4. Test Using Bruno
+
+The APIs can be tested using Bruno or another REST API client.
+
+#### General AI
+
+```http
+POST http://localhost:6363/api/chat/general
+```
+
+Request:
+
+```json
+{
+  "question": "what is Life in one sentence?"
+}
+```
+
+#### PDF Question Answering
+
+```http
+POST http://localhost:6363/api/chat/pdf
+```
+
+Use:
+
+```text
+Content-Type: multipart/form-data
+
+file      → any readable PDF
+question  → question related to the PDF
+```
 
 ---
 
@@ -279,51 +575,57 @@ spring.datasource.password=${DB_PASSWORD}
 The application currently demonstrates:
 
 - REST API development using Spring Boot
+- Separate general AI and PDF-based AI endpoints
 - Google Gemini integration using Spring AI
-- PDF document ingestion using Apache PDFBox
-- PDF text extraction
+- Dynamic PDF upload at request time
+- PDF text extraction using Apache PDFBox
 - Document-context-based AI question answering
-- General AI question answering
-- Handling of questions where information is not found in the PDF
+- PDF-only answering for document queries
+- Information-not-found handling
 - Request validation using Jakarta Bean Validation
 - Centralized exception handling
+- HTTP 400 error handling
 - MySQL database connectivity
-- Spring Data JPA and Hibernate
+- Spring Data JPA and Hibernate configuration
+- Environment-based secret management
+- Multipart file upload
 - Maven-based project management
 - API testing using Bruno
-- Spring Boot Actuator for monitoring
+- Spring Boot Actuator
 
 ---
 
 ## ⚠️ Current Architecture Limitation
 
-The current implementation uses **direct PDF text context** for AI question answering.
+The current PDF question-answering implementation uses **direct PDF text extraction and context injection**.
 
-It does **not currently implement**:
+It does not currently implement:
 
 - Embeddings
 - Vector database
 - Semantic similarity search
 - Chunk-level retrieval
-- Full production RAG pipeline
+- Retrieval-Augmented Generation (RAG)
+- Persistent document storage
+- OCR for scanned/image-only PDFs
 
-The current implementation focuses on understanding the fundamentals of **Spring Boot + AI integration + document processing + REST API development**.
+The current architecture intentionally focuses on the fundamentals of:
 
----
-
-## 🔐 Configuration & Security
-
-Sensitive configuration values are provided through environment variables.
-
-Example:
-
-```properties
-spring.datasource.password=${DB_PASSWORD}
+```text
+Spring Boot
+     ↓
+REST APIs
+     ↓
+PDF Processing
+     ↓
+Spring AI
+     ↓
+Google Gemini
+     ↓
+Document-Based Question Answering
 ```
 
-Gemini API credentials are also supplied through environment variables.
-
-Sensitive credentials should never be committed to the GitHub repository.
+This provides a straightforward foundation that can later be extended into a full RAG-based architecture.
 
 ---
 
@@ -333,11 +635,43 @@ The REST APIs are tested using **Bruno**.
 
 The project includes demonstrations for:
 
-- Successful general AI response
-- Successful PDF-based AI response
-- PDF query where information is not found
-- Invalid request validation
-- MySQL connectivity
+| Test Scenario | Endpoint | Expected Result |
+|---|---|---|
+| General AI Question | `/api/chat/general` | Gemini-generated response |
+| PDF Question | `/api/chat/pdf` | Answer based on uploaded PDF |
+| PDF Information Not Found | `/api/chat/pdf` | Information-not-found response |
+| Empty Question | `/api/chat/general` | HTTP 400 Bad Request |
+| Empty PDF | `/api/chat/pdf` | HTTP 400 Bad Request |
+| Unreadable PDF | `/api/chat/pdf` | HTTP 400 Bad Request |
+| MySQL Connectivity | Application startup | Database connection established |
+
+---
+
+## 📸 Application Demonstrations
+
+### 1. Spring Boot Application Started
+
+![Spring Boot Application Started](docs/screenshots/01-spring-boot-application-started.png )
+
+### 2. MySQL Database Connection
+
+![MySQL Database Connection](docs/screenshots/02-mysql-database-connection.png )
+
+### 3. General AI Response
+
+![General AI Response](docs/screenshots/03-general-ai-response.png )
+
+### 4. PDF Question and Answer
+
+![PDF Question and Answer](docs/screenshots/04-pdf-question-answer.png )
+
+### 5. PDF Information Not Found
+
+![PDF Information Not Found](docs/screenshots/05-pdf-information-not-found.png )
+
+### 6. Validation Error Handling
+
+![Validation Error Handling](docs/screenshots/06-validation-error-handling.png )
 
 ---
 
@@ -350,23 +684,55 @@ EnterpriseKnowledgeAssistant
 │   └── main
 │       ├── java
 │       │   └── com
-│       │       └── ...
+│       │       └── Siddharth
+│       │           └── EnterpriseKnowledgeAssistant
+│       │               │
+│       │               ├── AI
+│       │               │   ├── ChatControllerLayer
+│       │               │   │   └── ChatController.java
+│       │               │   │
+│       │               │   ├── ChatDTO
+│       │               │   │   ├── ChatRequestDTO.java
+│       │               │   │   └── ChatResponseDTO.java
+│       │               │   │
+│       │               │   ├── ChatServiceLayer
+│       │               │   │   ├── ChatService.java
+│       │               │   │   └── ChatServiceImplementation.java
+│       │               │   │
+│       │               │   ├── Config
+│       │               │   │   └── AiConfiguration.java
+│       │               │   │
+│       │               │   ├── GlobalExceptionHandling
+│       │               │   │   └── GlobalExceptionHandler.java
+│       │               │   │
+│       │               │   └── Ingestion
+│       │               │       └── pdf
+│       │               │           └── PdfIngestionService.java
+│       │               │
+│       │               └── EnterpriseKnowledgeAssistantApplication.java
 │       │
 │       └── resources
 │           └── application.properties
 │
 ├── docs
-│   └── screenshots
-│       ├── 01-spring-boot-application-started.png
-│       ├── 02-mysql-database-connection.png
-│       ├── 03_IT_Access_Control_PDF_Query.png
-│       ├── 04_General_AI_Response.png
-│       ├── 05_Invalid_Request_Error_Handling.png
-│       └── 06_PDF_Based_Query_No_Information_Found.png
+│   ├── architecutre
+│   │   ├── 01_High_Level_System_Architecture.png
+│   │   ├── 02_PDF_Ingestion_and_AI_Processing_Flow.png
+│   │   ├── 03_API_Request_Response_Flow.png
+│   │   └── 04_Exception_Handling_Flow.png
+│   │
+│   ├── 01-spring-boot-application-started.png
+│   ├── 02-mysql-database-connection.png
+│   ├── 03-general-ai-response.png
+│   ├── 04-pdf-question-answer.png
+│   ├── 05-pdf-information-not-found.png
+│   └── 06-validation-error-handling.png
 │
 ├── pom.xml
 └── README.md
 ```
+
+> Note: The architecture folder is currently named `architecutre` in the project. The README references the folder using that exact name so the GitHub image paths match the current repository structure.
 
 ---
 
@@ -376,19 +742,34 @@ This project was built to strengthen practical backend development skills while 
 
 The primary focus areas are:
 
-**Java → Spring Boot → REST APIs → PDF Processing → Gemini AI → Validation → Database Connectivity → Clean Backend Architecture**
+**Java → Spring Boot → REST APIs → PDF Processing → Spring AI → Google Gemini → Validation → Exception Handling → Database Connectivity → Clean Backend Architecture**
+
+The application demonstrates how a Java backend can support both:
+
+```text
+General AI Questions
+        +
+User-Uploaded PDF Questions
+        ↓
+Google Gemini
+        ↓
+AI-Generated Response
+```
+
+The project emphasizes a clean and understandable backend implementation that can serve as a foundation for future AI and RAG-based enhancements.
 
 ---
+
 ## 👨‍💻 Author
 
-**Siddharth Kumar**  
+**Siddharth Kumar**
 
-[![Email](https://img.shields.io/badge/Email-siddharth0161820@gmail.com-red?style=for-the-badge&logo=gmail)](mailto:siddharth0161820@gmail.com)  
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/siddharthkumar16)  
+[![Email](https://img.shields.io/badge/Email-siddharth0161820@gmail.com-red?style=for-the-badge&logo=gmail)](mailto:siddharth0161820@gmail.com)
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/siddharthkumar16)
+
 [![GitHub](https://img.shields.io/badge/GitHub-Profile-black?style=for-the-badge&logo=github)](https://github.com/siddharth0161820)
 
 🙏 Built with dedication to strengthen practical backend development skills and learn how to integrate AI capabilities into Java and Spring Boot applications. Connect for collaboration, job opportunities, or tech discussions.
-
-
 
 
